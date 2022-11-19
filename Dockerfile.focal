@@ -5,36 +5,111 @@ WORKDIR /root/
 # Add libcuda dummy dependency
 ADD control .
 RUN apt-get update && \
-	DEBIAN_FRONTEND=noninteractive apt-get install --yes equivs && \
-	equivs-build control && \
-	dpkg -i libcuda1-dummy_11.1_all.deb && \
-	rm control libcuda1-dummy_11.1_all.deb && \
-	apt-get remove --yes --purge --autoremove equivs && \
-	rm -rf /var/lib/apt/lists/*
+    DEBIAN_FRONTEND=noninteractive apt-get install --yes equivs && \
+    equivs-build control && \
+    dpkg -i libcuda1-dummy_11.1_all.deb && \
+    rm control libcuda1-dummy_11.1_all.deb && \
+    apt-get remove --yes --purge --autoremove equivs && \
+    rm -rf /var/lib/apt/lists/*
 
 # Setup Lambda repository
 ADD lambda.gpg .
 RUN apt-get update && \
-	apt-get install --yes gnupg && \
-	apt-key add lambda.gpg && \
-	rm lambda.gpg && \
-	echo "deb http://archive.lambdalabs.com/ubuntu focal main" > /etc/apt/sources.list.d/lambda.list && \
-	echo "Package: *" > /etc/apt/preferences.d/lambda && \
-	echo "Pin: origin archive.lambdalabs.com" >> /etc/apt/preferences.d/lambda && \
-	echo "Pin-Priority: 1001" >> /etc/apt/preferences.d/lambda && \
-	echo "cudnn cudnn/license_preseed select ACCEPT" | debconf-set-selections && \
-	apt-get update && \
-	DEBIAN_FRONTEND=noninteractive \
-		apt-get install \
-		--yes \
-		--no-install-recommends \
-		--option "Acquire::http::No-Cache=true" \
-		--option "Acquire::http::Pipeline-Depth=0" \
-		lambda-stack-cuda \
-		lambda-server && \
-	rm -rf /var/lib/apt/lists/*
+    apt-get install --yes gnupg && \
+    apt-key add lambda.gpg && \
+    rm lambda.gpg && \
+    echo "deb http://archive.lambdalabs.com/ubuntu focal main" >/etc/apt/sources.list.d/lambda.list && \
+    echo "Package: *" >/etc/apt/preferences.d/lambda && \
+    echo "Pin: origin archive.lambdalabs.com" >>/etc/apt/preferences.d/lambda && \
+    echo "Pin-Priority: 1001" >>/etc/apt/preferences.d/lambda && \
+    echo "cudnn cudnn/license_preseed select ACCEPT" | debconf-set-selections && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install \
+        --yes \
+        --no-install-recommends \
+        --option "Acquire::http::No-Cache=true" \
+        --option "Acquire::http::Pipeline-Depth=0" \
+        lambda-stack-cuda \
+        lambda-server && \
+    rm -rf /var/lib/apt/lists/*
+
+#####
+# src-r-r modifications
+# a lot of packages were missing.
+
+RUN apt update && \
+    DEBIAN_FRONTEND=noninteractive \
+    apt install -y \
+    libcudart10.1 \
+    libcusolver10 \
+    libcusparse10 \
+    libcublas10 \
+    kmod \
+    software-properties-common \
+    apt-utils \
+    ubuntu-drivers-common \
+    linux-signatures-nvidia-5.15.0-52-generic \
+    linux-objects-nvidia-520-5.15.0-52-generic \
+    wget \
+    libffi-dev \
+    libssl-dev
+
+RUN apt update && \
+    DEBIAN_FRONTEND=noninteractive \
+    ubuntu-drivers autoinstall
+
+WORKDIR /opt
+RUN wget https://www.python.org/ftp/python/3.7.0/Python-3.7.0.tar.xz
+RUN tar xvf Python-3.7.0.tar.xz
+WORKDIR /opt/Python-3.7.0/
+RUN ./configure --prefix=/usr/local && make && make install
+
+RUN alias pip=pip3.7
+RUN alias python3=python3.7
+RUN alias python=python3.7
+
+RUN pip3.7 install -U pip
+RUN pip3.7 install matplotlib tensorflow-gpu==1.15.4 absl-py "protobuf<3.20"
+
+
+COPY relink_libs.sh /relink_libs.sh
+RUN /relink_libs.sh
+
+
+RUN ln -sf \
+    /usr/lib/python3/dist-packages/tensorflow/libcudnn.so.8 \
+    /usr/lib/python3/dist-packages/tensorflow/libcudnn.so.7 
+
+# RUN ln -sf \
+#     /usr/lib/x86_64-linux-gnu/libcusolver.so.11 \
+#     /usr/lib/x86_64-linux-gnu/libcusolver.so.10
+
+# RUN ln -sf \
+#     /usr/lib/x86_64-linux-gnu/libcusolver.so.11.0 \
+#     /usr/lib/x86_64-linux-gnu/libcusolver.so.10.0
+
+# RUN ln -sf \
+#     /usr/lib/x86_64-linux-gnu/libcusparse.so.11 \
+#     /usr/lib/x86_64-linux-gnu/libcusparse.so.10
+
+# RUN ln -sf \
+#     /usr/lib/x86_64-linux-gnu/libcusparse.so.11.0 \
+#     /usr/lib/x86_64-linux-gnu/libcusparse.so.10.0
+
+# RUN ln -sf \
+#     /usr/lib/x86_64-linux-gnu/libcublas.so.11 \
+#     /usr/lib/x86_64-linux-gnu/libcublas.so.10
+
+# RUN ln -sf \
+#     /usr/lib/x86_64-linux-gnu/libcublas.so.11.0 \
+#     /usr/lib/x86_64-linux-gnu/libcublas.so.10.0
+
+RUN ln -s /usr/lib/cuda /usr/local/cuda-10.1
+
 
 # Setup for nvidia-docker
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 ENV NVIDIA_REQUIRE_CUDA "cuda>=10.2"
+ENV LD_LIBRARY_PATH=/usr/lib/nvidia-cuda-toolkit/libdevice:/usr/lib/x86_64-linux-gnu/:/usr/lib/python3/dist-packages/tensorflow:/usr/lib/nvidia-cuda-toolkit/libdevice:$LD_LIBRARY_PATH
