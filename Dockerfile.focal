@@ -2,6 +2,8 @@ FROM ubuntu:20.04
 
 WORKDIR /root/
 
+ARG KERNEL=5.4.0-135-generic
+
 # Add libcuda dummy dependency
 ADD control .
 RUN apt-get update && \
@@ -49,8 +51,8 @@ RUN apt update && \
     software-properties-common \
     apt-utils \
     ubuntu-drivers-common \
-    linux-signatures-nvidia-5.15.0-52-generic \
-    linux-objects-nvidia-520-5.15.0-52-generic \
+    linux-signatures-nvidia-${KERNEL} \
+    linux-objects-nvidia-520-${KERNEL} \
     wget \
     libffi-dev \
     libssl-dev
@@ -78,35 +80,6 @@ RUN dpkg -vi /opt/libcudnn7_7.6.4.38-1+cuda10.1_amd64.deb
 
 COPY relink_libs.sh /relink_libs.sh
 RUN /relink_libs.sh
-
-
-# RUN ln -sf \
-#     /usr/lib/python3/dist-packages/tensorflow/libcudnn.so.8 \
-#     /usr/lib/python3/dist-packages/tensorflow/libcudnn.so.7 
-
-# RUN ln -sf \
-#     /usr/lib/x86_64-linux-gnu/libcusolver.so.11 \
-#     /usr/lib/x86_64-linux-gnu/libcusolver.so.10
-
-# RUN ln -sf \
-#     /usr/lib/x86_64-linux-gnu/libcusolver.so.11.0 \
-#     /usr/lib/x86_64-linux-gnu/libcusolver.so.10.0
-
-# RUN ln -sf \
-#     /usr/lib/x86_64-linux-gnu/libcusparse.so.11 \
-#     /usr/lib/x86_64-linux-gnu/libcusparse.so.10
-
-# RUN ln -sf \
-#     /usr/lib/x86_64-linux-gnu/libcusparse.so.11.0 \
-#     /usr/lib/x86_64-linux-gnu/libcusparse.so.10.0
-
-# RUN ln -sf \
-#     /usr/lib/x86_64-linux-gnu/libcublas.so.11 \
-#     /usr/lib/x86_64-linux-gnu/libcublas.so.10
-
-# RUN ln -sf \
-#     /usr/lib/x86_64-linux-gnu/libcublas.so.11.0 \
-#     /usr/lib/x86_64-linux-gnu/libcublas.so.10.0
 
 RUN ln -s /usr/lib/cuda /usr/local/cuda-10.1
 
