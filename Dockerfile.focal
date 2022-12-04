@@ -76,7 +76,7 @@ RUN pip3.7 install matplotlib tensorflow-gpu==1.15.4 absl-py "protobuf<3.20"
 
 COPY libcudnn7_7.6.4.38-1+cuda10.1_amd64.deb /opt
 
-RUN dpkg -vi /opt/libcudnn7_7.6.4.38-1+cuda10.1_amd64.deb
+RUN dpkg -i /opt/libcudnn7_7.6.4.38-1+cuda10.1_amd64.deb
 
 COPY relink_libs.sh /relink_libs.sh
 RUN /relink_libs.sh
